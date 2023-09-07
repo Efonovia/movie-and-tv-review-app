@@ -25,20 +25,12 @@ const UserSchema = mongoose.Schema({
         default: "",
     },
     favourites: {
-        type: Array,
-        default: [],
-    },
-    likes: {
-        type: Array,
-        default: [],
-    },
-    watches: {
-        type: Array,
-        default: [],
+        type: Map,
+        of: Boolean,
     },
     watchList: {
-        type: Array,
-        default: [],
+        type: Map,
+        of: Boolean,
     },
     dateJoined: {
         type: Date,

@@ -1,5 +1,4 @@
 import UserDatabase from "../models/user.mongo.js"
-import CollectionDatabase from "../models/collection.mongo.js"
 import bcrypt from "bcrypt"
 
 
@@ -49,10 +48,8 @@ export const createNewUser = async (req, res) => {
               email,
               password: passwordHash,
               picturePath: picturePath || "",
-              favourites: [],
-              likes: [],
-              watches: [],
-              watchList: [],
+              favourites: {},
+              watchList: {},
               dateJoined: new Date()
             })
   
@@ -75,86 +72,28 @@ export const createNewUser = async (req, res) => {
     }
 }
 
-export const addToList = async (req, res) => {
+export const toggleToWatchList = async (req, res) => {
   try {
-      const { id } = req.params
-      const { collectionId, collectionType, listType } = req.body
+      const { userId, collectionId } = req.body
+      const collectionIdStr = JSON.stringify(collectionId)
+      const user = await UserDatabase.findById(userId)
+      const isWatchListed = user.watchList.get(collectionIdStr)
 
-      console.log(req.body)
+      if(isWatchListed) {
+        user.watchList.delete(collectionIdStr)
+      } else {
+          user.watchList.set(collectionIdStr, true)
+      }
 
-      CollectionDatabase.findOne({ collectionId })
-      .then((collection) => {
-        if (collection) {
-          console.log(collection); // Found collection
-          collection[listType].create(id, true)
-        } else {
-            console.log(`Collection with collectionId ${collectionId} not found.`);
-            const newCollection = new CollectionDatabase({
-              collectionId,
-              likes: listType === "likes" ? {[id]: true} : {},
-              watches: listType === "watches" ? {[id]: true} : {},
-            })
-
-            newCollection.save().then(() => {
-              console.log('New collection added successfully');
-            }).catch((error) => {
-                console.log(error);
-              });
-  
-        }
-      })
-      .catch((error) => {
-        console.log(`Error finding collection with id ${email}: ${error}`);
-        return res.status(500).json({error: error.message})
-      });
-
-      const user = await UserDatabase.findById(id)
-      const collection = await CollectionDatabase.findOne({ collectionId })
-      
-      user[listType].push({ collectionId, collectionType })
-      await user.save()
-      const updatedCollection = await CollectionDatabase.findOneAndUpdate(
-        { collectionId },
-        { [listType]: collection[listType] },
+    //FINDING AND UPDATING THE LIKED OR UNLIKED USER
+    const updatedUser = await UserDatabase.findByIdAndUpdate(
+        userId,
+        { watchList: user.watchList },
         { new: true }
-      )
+    )
 
-      console.log(updatedCollection)
-      const formattedUser = await UserDatabase.findById(id)
-      const newitem = formattedUser[listType].find(item => item.collectionId === collectionId)
-      return res.status(201).json(newitem)
+      res.status(200).json(updatedUser)
   } catch (error) {
-      console.log(error)
-      return res.status(404).json({error: error.message})
-  }
-}
-
-export const removeFromList = async (req, res) => {
-  try {
-      const { id } = req.params
-      const { collectionId, listType } = req.body
-      console.log("collectionId: ", collectionId)
-      const user = await UserDatabase.findById(id)
-      const collection = await CollectionDatabase.findOne({ collectionId })
-      console.log(user[listType])
-      collection[listType].delete(id)
-
-      const updatedCollection = await CollectionDatabase.findOneAndUpdate(
-        { collectionId },
-        { [listType]: collection[listType] },
-        { new: true }
-      )
-
-      console.log(updatedCollection)
-      user[listType] = user[listType].filter(item => item.collectionId !== Number(collectionId))
-      
-      await user.save()
-
-      const formattedUser = await UserDatabase.findById(id)
-      const formattedList = formattedUser[listType]
-      return res.status(201).json(formattedList)
-  } catch (error) {
-      console.log(error)
-      return res.status(404).json({error: error.message})
+      res.status(404).json({ error: error.message })
   }
 }
